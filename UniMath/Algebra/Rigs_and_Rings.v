@@ -184,6 +184,8 @@ Definition rigfunconstr {X Y : rig} {f : X -> Y} (is : isrigfun f) : rigfun X Y 
 Definition pr1rigfun (X Y : rig) : rigfun X Y  -> (X -> Y) := @pr1 _ _.
 Coercion pr1rigfun : rigfun >-> Funclass.
 
+Definition rigfunisrigfun {X Y : rig} (f : rigfun X Y) : isrigfun f := pr2 f.
+
 Definition rigaddfun {X Y : rig} (f : rigfun X Y) :
   monoidfun (rigaddabmonoid X) (rigaddabmonoid Y) := monoidfunconstr (pr1 (pr2 f)).
 

@@ -146,6 +146,8 @@ Definition monoidfun (X Y : monoid) : UU := total2 (fun f : X -> Y => ismonoidfu
 Definition monoidfunconstr {X Y : monoid} {f : X -> Y} (is : ismonoidfun f) : monoidfun X Y :=
   tpair _ f is.
 
+Definition monoidfunismonoidfun {X Y : monoid} (f : monoidfun X Y) : ismonoidfun (pr1 f) := pr2 f.
+
 Definition pr1monoidfun (X Y : monoid) : monoidfun X Y -> (X -> Y) := @pr1 _ _.
 
 Definition monoidfuntobinopfun (X Y : monoid) : monoidfun X Y -> binopfun X Y :=
@@ -2012,6 +2014,16 @@ Definition abgrtoabmonoid : abgr -> abmonoid :=
   fun X : _ => abmonoidpair (pr1 X) (dirprodpair (pr1 (pr1 (pr2 X))) (pr2 (pr2 X))).
 Coercion abgrtoabmonoid : abgr >-> abmonoid.
 
+Lemma abgridmonoidfun_ismonoidfun (X : abgr) : ismonoidfun (fun x : X => x).
+Proof.
+  intros X.
+  use mk_ismonoidfun.
+  - use mk_isbinopfun. intros x x'. use idpath.
+  - use idpath.
+Qed.
+
+Definition abgridmonoidfun (X : abgr) : monoidfun X X :=
+  monoidfunconstr (abgridmonoidfun_ismonoidfun X).
 
 (** **** Construction of the trivial abgr consisting of one element given by unit. *)
 

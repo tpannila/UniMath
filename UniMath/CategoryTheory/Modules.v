@@ -1,23 +1,293 @@
-(** Anthony Bordg, February-March 2017 *)
+(** * Modules *)
+(** ** Contents
+- Modules
+*)
 
-Require Import UniMath.Algebra.Rigs_and_Rings.
-Require Import UniMath.Algebra.Monoids_and_Groups.
 Require Import UniMath.Foundations.Sets.
 Require Import UniMath.Foundations.UnivalenceAxiom.
-Require Import UniMath.Foundations.PartA.
-Require Import UniMath.Foundations.Preamble.
-Require Import UniMath.Algebra.Domains_and_Fields.
+
+Require Import UniMath.Algebra.Monoids_and_Groups.
+Require Import UniMath.Algebra.Rigs_and_Rings.
+
 Require Import UniMath.CategoryTheory.precategories.
-Require Import UniMath.Foundations.PartD.
 
 
-Local Open Scope addmonoid_scope.
+(** ** Modules
+   - Endomorphisms of an abelian group
+   - Left modules over a ring
+   - Univalence for modules
+ *)
+Section def_modules.
 
-(** * The ring of endomorphisms of an abelian group *)
+  Local Open Scope addmonoid_scope.
 
-(** The underlying set of the ring of endomorphisms of an abelian group *)
 
- Definition setofendabgr (G : abgr) : hSet :=
+  (** *** The ring of endomorphisms of an abelian group *)
+
+  Definition endoabgr (G : abgr) : abgr := abgrshomabgr G G.
+
+  Definition endoabgr_op2 (G : abgr) : binop (endoabgr G) :=
+    (fun f : endoabgr G => fun g : endoabgr G => monoidfuncomp f g).
+
+  Definition setwith2binopofendoabgr (G : abgr) : setwith2binop :=
+    setwith2binoppair (endoabgr G) (dirprodpair (@op (endoabgr G)) (endoabgr_op2 G)).
+
+  Lemma endoabgr_isassoc (G : abgr) : isassoc (@op2 (setwith2binopofendoabgr G)).
+  Proof.
+    intros f g h. use monoidfun_paths. use funextfun. intros x. use idpath.
+  Qed.
+
+  Lemma endoabgr_isunit (G : abgr) : isunit (@op2 (setwith2binopofendoabgr G)) (abgridmonoidfun G).
+  Proof.
+    use isunitpair.
+    - intros f. use monoidfun_paths. use funextfun. intros x. use idpath.
+    - intros f. use monoidfun_paths. use funextfun. intros x. use idpath.
+  Qed.
+
+  Lemma endoabgr_isdistr (G : abgr) :
+    isdistr (@op1 (setwith2binopofendoabgr G)) (@op2 (setwith2binopofendoabgr G)).
+  Proof.
+    use dirprodpair.
+    - intros f g h. use monoidfun_paths. use funextfun. intros x. use idpath.
+    - intros f g h. use monoidfun_paths. use funextfun. intros x. cbn.
+      exact (binopfunisbinopfun (h : monoidfun G G) (pr1 f x) (pr1 g x)).
+  Qed.
+
+  Definition endoabgrrng (G : abgr) : rng.
+  Proof.
+    use rngpair.
+    - exact (setwith2binopofendoabgr G).
+    - use mk_isrngops.
+      + exact (abgrshomabgr_isabgrop G G).
+      + use mk_ismonoidop.
+        * exact (endoabgr_isassoc G).
+        * use isunitalpair.
+          -- exact (abgridmonoidfun G).
+          -- exact (endoabgr_isunit G).
+      + exact (endoabgr_isdistr G).
+  Defined.
+
+
+  (** *** Left R-modules over a ring R *)
+
+  Definition module (R : rng) : UU := ∑ (G : abgr), rngfun R (endoabgrrng G).
+
+  Definition moduletoabgr {R : rng} (M : module R) : abgr := pr1 M.
+  Coercion moduletoabgr : module >-> abgr.
+
+  Definition module_action {R : rng} (M : module R) : rngfun R (endoabgrrng M) := pr2 M.
+  Coercion module_action : module >-> rngfun.
+
+  Definition module_action_unel1 {R : rng} (M : module R) (x : M) :
+    pr1 (M (@rngunel1 R)) x = @unel M.
+  Proof.
+    exact (toforallpaths _ _ _ (base_paths _ _ (monoidfununel (rigaddfun M))) x).
+  Qed.
+
+  Definition isactionfun {R : rng} {M N : module R} (f : M -> N) : UU :=
+    ∏ r : R, ∏ x : M, f (pr1 (M r) x) = (pr1 (N r) (f x)).
+
+  Definition isapropisactionfun {R : rng} {M N : module R} (f : M -> N) : isaprop (isactionfun f).
+  Proof.
+    use impred. intros r.
+    use impred. intros x.
+    use setproperty.
+  Qed.
+
+  Definition ismodulefun {R : rng} {M N : module R} (f : M -> N) : UU :=
+    (isbinopfun f) × (isactionfun f).
+
+  Definition mk_ismodulefun {R : rng} {M N : module R} {f : M -> N} (H1 : isbinopfun f)
+             (H2 : ∏ r : R, ∏ x : M, f (pr1 (M r) x) = (pr1 (N r) (f x))) :
+    ismodulefun f := dirprodpair H1 H2.
+
+  Definition ismodulefunisbinopfun {R : rng} {M N : module R} {f : M -> N} (H : ismodulefun f) :
+    isbinopfun f := dirprod_pr1 H.
+
+  Definition ismodulefunscalar {R : rng} {M N : module R} {f : M -> N} (H : ismodulefun f) :
+    ∏ r : R, ∏ x : M, f (pr1 (M r) x) = (pr1 (N r) (f x)) := dirprod_pr2 H.
+
+  Lemma isapropismodulefun {R : rng} {M N : module R} (f : M -> N) : isaprop (ismodulefun f).
+  Proof.
+    use isapropdirprod.
+    - use isapropisbinopfun.
+    - use isapropisactionfun.
+  Qed.
+
+  Definition modulefun {R : rng} (M N : module R) : UU := ∑ (f : M -> N), ismodulefun f.
+
+  Definition mk_modulefun {R : rng} {M N : module R} (f : M -> N) (is : ismodulefun f) :=
+    tpair _ f is.
+
+  Definition pr1modulefun {R : rng} {M N : module R} (f : @modulefun R M N) : M -> N := pr1 f.
+  Coercion pr1modulefun : modulefun >-> Funclass.
+
+  Definition modulefunismodulefun {R : rng} {M N : module R} (f : modulefun N M) : ismodulefun f :=
+    pr2 f.
+
+  Definition modulefununel {R : rng} {M N : module R} (f : modulefun M N) : f (@unel M) = @unel N.
+  Proof.
+    use (pathscomp0 (! (maponpaths (pr1 f) (module_action_unel1 M 1%multmonoid)))).
+    use (pathscomp0 (ismodulefunscalar (modulefunismodulefun f) (@rngunel1 R) (@unel M))).
+    exact (module_action_unel1 N (pr1 f 1%multmonoid)).
+  Qed.
+
+  Definition modulefunisbinopfun {R : rng} {M N : module R} (f : modulefun M N) :
+    isbinopfun f := pr1 (pr2 f).
+
+  Lemma modulefun_paths {R : rng} {M N : module R} (f g : modulefun M N) (e : pr1 f = pr1 g) :
+    f = g.
+  Proof.
+    use total2_paths_f.
+    - exact e.
+    - use proofirrelevance. use isapropismodulefun.
+  Qed.
+
+
+  (** *** Isomorphism of left modules *)
+
+  Definition moduleiso {R : rng} (X Y : module R) : UU := ∑ (f : weq X Y), ismodulefun f.
+
+  Definition mk_moduleiso {R : rng} {X Y : module R} (f : weq X Y) (is : ismodulefun f) :
+    moduleiso X Y := tpair _  f is.
+
+  Definition moduleisoweq {R : rng} {X Y : module R} (i : moduleiso X Y) : weq X Y := pr1 i.
+  Coercion moduleisoweq : moduleiso >-> weq.
+
+  Definition moduleisotomonoidfun {R : rng} {X Y : module R} (i : moduleiso X Y) : modulefun X Y :=
+    mk_modulefun i (pr2 i).
+  Coercion moduleisotomonoidfun : moduleiso >-> modulefun.
+
+  Definition idmoduleiso_ismodulefun {R : rng} (X : module R) : ismodulefun (fun x : X => x).
+  Proof.
+    use mk_ismodulefun.
+    - intros x x'. use idpath.
+    - intros r x. use idpath.
+  Qed.
+
+  Lemma moduleiso_paths {R : rng} {X Y : module R} (i i' : moduleiso X Y) (e : pr1 i = pr1 i') :
+    i = i'.
+  Proof.
+    use total2_paths_f.
+    - exact e.
+    - use proofirrelevance. use isapropismodulefun.
+  Qed.
+
+  Definition idmoduleiso {R : rng} (X : module R) : moduleiso X X.
+  Proof.
+    use mk_moduleiso.
+    - exact (idweq X).
+    - exact (idmoduleiso_ismodulefun X).
+  Defined.
+
+
+  (** *** Univalence for left modules
+     The idea is to use the following composition
+
+                X = Y ≃ (X ╝ Y)
+                      ≃ (monoidiso' X Y)
+                      ≃ (monoidiso X Y)
+
+     where the second weak equivalence uses univalence for abelian groups. We define monoidiso' to
+     be able to apply it.
+   *)
+
+  Local Definition moduleiso' {R : rng} (M N : module R) : UU :=
+    ∑ (i : monoidiso M N), isactionfun i.
+
+  Local Definition moduleiso_to_moduleiso' {R : rng} (M N : module R) :
+    moduleiso M N -> moduleiso' M N.
+  Proof.
+    intro i.
+    use tpair.
+    - use tpair.
+      + exact i.
+      + use mk_ismonoidfun.
+        * exact (modulefunisbinopfun i).
+        * exact (modulefununel i).
+    - exact (ismodulefunscalar (modulefunismodulefun i)).
+  Defined.
+
+  Local Definition moduleiso'_to_moduleiso {R : rng} (M N : module R) :
+    moduleiso' M N -> moduleiso M N.
+  Proof.
+    intro i.
+    use mk_moduleiso.
+    - exact (pr1 i).
+    - use mk_ismodulefun.
+      + exact (ismonoidfunisbinopfun (monoidfunismonoidfun (pr1 i))).
+      + exact (pr2 i).
+   Defined.
+
+  Definition module_univalence_weq1 {R : rng} (M N : module R) : (M = N) ≃ (M ╝ N) :=
+    total2_paths_equiv _ M N.
+
+  Definition module_univalence_weq2 {R : rng} (M N : module R) : (M ╝ N) ≃ (moduleiso' M N).
+  Proof.
+    use weqbandf.
+    - use abgr_univalence.
+    - intros e. cbn. use invweq. induction M as [M Mop]. induction N as [N Nop]. cbn in e.
+      cbn. induction e. use weqimplimpl.
+      + intros H.
+        use rigfun_paths. use funextfun. intros r.
+        use monoidfun_paths. use funextfun. intros x.
+        exact (H r x).
+      + intros H r x. cbn in H. unfold idfun in H. cbn in *. induction H. use idpath.
+      + use isapropisactionfun.
+      + use isasetrigfun.
+  Defined.
+  Opaque module_univalence_weq2.
+
+  Definition module_univalence_weq3 {R : rng} (M N : module R) : (moduleiso' M N) ≃ (moduleiso M N).
+  Proof.
+    use weqpair.
+    - exact (moduleiso'_to_moduleiso M N).
+    - use gradth.
+      + exact (moduleiso_to_moduleiso' M N).
+      + intros x. use total2_paths_f.
+        * use monoidiso_paths. use idpath.
+        * use proofirrelevance. use isapropisactionfun.
+      + intros y. use moduleiso_paths. use idpath.
+  Defined.
+  Opaque module_univalence_weq3.
+
+  Definition module_univalence_map {R : rng} (X Y : module R) : X = Y -> moduleiso X Y.
+  Proof.
+    intros e. induction e. exact (idmoduleiso X).
+  Defined.
+
+  Definition module_univalence_isweq {R : rng} (X Y : module R) : isweq (module_univalence_map X Y).
+  Proof.
+    use isweqhomot.
+    - exact (weqcomp (module_univalence_weq1 X Y)
+                     (weqcomp (module_univalence_weq2 X Y) (module_univalence_weq3 X Y))).
+    - intros e. induction e.
+      use (pathscomp0 weqcomp_to_funcomp_app).
+      use (pathscomp0 weqcomp_to_funcomp_app).
+      use moduleiso_paths.
+      use idpath.
+    - use weqproperty.
+  Qed.
+
+  Definition module_univalence {R : rng} (X Y : module R) : (X = Y) ≃ (moduleiso X Y).
+  Proof.
+    use weqpair.
+    - exact (module_univalence_map X Y).
+    - exact (module_univalence_isweq X Y).
+  Defined.
+  Opaque module_univalence.
+
+End def_modules.
+
+(** TODO :
+ - The results in the above section should go to UniMath/Algebra/Modules.v
+ - Create a new file CategoryTheory/categories/modules.v which contains the proofs that modules
+   form a Precategory and a category.
+*)
+
+
+
+(* Definition setofendabgr (G : abgr) : hSet :=
    hSetpair (monoidfun G G) (isasetmonoidfun G G).
 
  Definition pr1setofendabgr {G : abgr} (f : setofendabgr G) : G -> G := pr1 f.
@@ -749,3 +1019,4 @@ Defined.
 
  Variable R : rng.
  Local Notation "R-Mod" := (category_module R).
+ *)
